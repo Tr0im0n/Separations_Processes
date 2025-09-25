@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-directory_location = r"C:\Users\Tom\Documents\Universiteit\Separations Processes\2025 Week 3\graded"
+directory_location = r"C:\PycharmProjects\Separations_Processes\res\ternary"
 
 os.chdir(directory_location)
 
@@ -14,23 +14,16 @@ triangle_points = np.array([[0.0, 0.0],
 
 inputs = np.array([[70.0, 30.0, 0.0], [0.0, 0.0, 100.0]])
 
-solubilty_curve_file_name = r"solubility curve.txt"
+solubility_curve_file_name = r"solubility_curve.csv"
 # order of arrays is Water, Acid, Solvent
-# with open(solubilty_curve_file_name, 'r') as f:
-#     numbers_list = [float(line.strip()) for line in f]
-
-solubility_array1d = np.loadtxt(solubilty_curve_file_name)
-solubility_table2d = solubility_array1d.reshape(16, 9)
-solubility_array = solubility_table2d[:, -3:]
+solubility_array = np.loadtxt(solubility_curve_file_name)
 solubility_array *= 100
 
-tie_lines_file_name = r"tie lines.txt"
-tie_lines1d = np.loadtxt(tie_lines_file_name)
-tie_lines2d = tie_lines1d.reshape(6, 6)
-tie_lines2d *= 100
-tie_lines1 = tie_lines2d[:, :3]
-tie_lines2 = tie_lines2d[:, -3:]
-
+tie_lines_file_name = r"tie_lines.csv"
+tie_lines = np.loadtxt(tie_lines_file_name)
+tie_lines *= 100
+tie_lines1 = tie_lines[:, :3]
+tie_lines2 = tie_lines[:, -3:]
 
 def convert_ternary_to_xy(array):
     """
