@@ -64,14 +64,9 @@ def draw_background():
     ax.text(15, 30, "F", ha='right', va='bottom', fontsize=16, c='r')
 
     # fig.canvas.draw()
-
     global background
     background = fig.canvas.copy_from_bbox(ax.bbox)
-
-    # ax.draw_artist(line)
-
-
-draw_background()
+    ax.draw_artist(line)
 
 
 def on_reshape(event):
@@ -95,6 +90,9 @@ def on_mouse_move(event):
 
     fig.canvas.blit(ax.bbox)   # ax or fig
     return 2
+
+
+draw_background()
 
 cid1 = fig.canvas.mpl_connect('draw_event', on_reshape)
 cid2 = fig.canvas.mpl_connect('motion_notify_event', on_mouse_move)   # 'button_press_event'
