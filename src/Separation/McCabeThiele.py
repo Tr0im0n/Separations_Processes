@@ -1,21 +1,31 @@
 
 from matplotlib import pyplot as plt
 import numpy as np
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
 
 from tools import lines
+from tools.LabeledSlider import LabeledSlider
 
 
 class McCabeThiele:
-    def __init__(self, xf=0.68, xd=0.93, xb=0.04, alpha=1.85, r=3, b=10, *,max_eq_array_size=127) :
-        self.xf = xf
-        self.xd = xd
-        self.xb = xb
-        self.alpha = alpha
-        self.r = r
-        self.b = b
+    DEFAULT_XF = 0.68
+    DEFAULT_XD = 0.93
+    DEFAULT_XB = 0.04
+    DEFAULT_ALPHA = 1.85
+    DEFAULT_R = 3.0
+    DEFAULT_B = 10.0
+    DEFAULT_MAX_EQ_ARRAY_SIZE = 127
 
-        self.max_eq_array_size = max_eq_array_size
+    def __init__(self, xf=None, xd=None, xb=None, alpha=None, r=None, b=None, *, max_eq_array_size=None):
+        # Use default if no value is passed
+        self.xf = xf if xf is not None else self.DEFAULT_XF
+        self.xd = xd if xd is not None else self.DEFAULT_XD
+        self.xb = xb if xb is not None else self.DEFAULT_XB
+        self.alpha = alpha if alpha is not None else self.DEFAULT_ALPHA
+        self.r = r if r is not None else self.DEFAULT_R
+        self.b = b if b is not None else self.DEFAULT_B
+
+        self.max_eq_array_size = max_eq_array_size if max_eq_array_size is not None else self.DEFAULT_MAX_EQ_ARRAY_SIZE
         self.n_eq_points = 0
         self.eq_points = np.zeros((2*self.max_eq_array_size, 1), dtype=float)
 
@@ -36,6 +46,10 @@ class McCabeThiele:
         self.feed_text = None
         self.bottoms_text = None
         self.distillate_text = None
+
+        self.reset_button = None
+
+        self.sliders = None
 
     def make_all_lines(self):
         self.rectifying_line = self.r/(self.r+1), self.xd/(self.r+1)
@@ -75,7 +89,7 @@ class McCabeThiele:
         self.eq_points.shape = (self.max_eq_array_size, 2)
 
     def init_artists(self, ax):
-        self.diag_artist = ax.plot([0, 1], [0, 1])
+        self.diag_artist, = ax.plot([0, 1], [0, 1])
         self.eqc_artist, = ax.plot(self.xs, self.eq_curve)
         self.rect_artist, = ax.plot([self.xb, self.q_point[0]], [self.xb, self.q_point[1]])
         self.strip_artist, = ax.plot([self.q_point[0], self.xd], [self.q_point[1], self.xd])
@@ -109,37 +123,43 @@ class McCabeThiele:
         self.init_artists(ax)
 
         axes = [plt.axes((0.05, 0.9 - 0.1*i, 0.3, 0.05)) for i in range(6)]
-        slider_xb = Slider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)
-        slider_xf = Slider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01)
-        slider_xd = Slider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01)
-        slider_alpha = Slider(axes[3], 'alpha', 0.1, 10.0, valinit=self.alpha, valstep=0.1)
-        slider_r = Slider(axes[4], 'R', 0.1, 10.0, valinit=self.r, valstep=0.1)
-        slider_b = Slider(axes[5], 'B', 0.1, 20.0, valinit=self.b, valstep=0.1)
+        slider_xb = LabeledSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)
+        slider_xf = LabeledSlider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01)
+        slider_xd = LabeledSlider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01)
+        slider_alpha = LabeledSlider(axes[3], 'alpha', 0.1, 10.0, valinit=self.alpha, valstep=0.1)
+        slider_r = LabeledSlider(axes[4], 'R', 0.1, 10.0, valinit=self.r, valstep=0.1)
+        slider_b = LabeledSlider(axes[5], 'B', 0.1, 20.0, valinit=self.b, valstep=0.1)
 
-        all_sliders = [slider_xb, slider_xf, slider_xd, slider_alpha, slider_r, slider_b]
+        self.sliders = [slider_xb, slider_xf, slider_xd, slider_alpha, slider_r, slider_b]
 
-        def update(val):
-            xb_val = slider_xb.val
-            xf_val = slider_xf.val
-            xd_val = slider_xd.val
-            alpha_val = slider_alpha.val
-            r_val = slider_r.val
-            b_val = slider_b.val
+        reset_ax = plt.axes((0.02, 0.05, 0.15, 0.05))
+        self.reset_button = Button(reset_ax, 'Reset', color='lightsalmon', hovercolor='tomato')
+        self.reset_button.on_clicked(self.reset_sliders)
 
-            self.xb = xb_val
-            self.xf = xf_val
-            self.xd = xd_val
-            self.alpha = alpha_val
-            self.r = r_val
-            self.b = b_val
-
-            self.make_all_lines()
-            self.update_artists()
-
-        for i in all_sliders:
-            i.on_changed(update)
+        for i in self.sliders:
+            i.on_changed(self.update)
 
         plt.show()
+
+    def update(self, val):
+        self.xb = self.sliders[0].val
+        self.xf = self.sliders[1].val
+        self.xd = self.sliders[2].val
+        self.alpha = self.sliders[3].val
+        self.r = self.sliders[4].val
+        self.b = self.sliders[5].val
+
+        if self.xb >= self.xf:
+            self.xf = self.xb + 0.01
+        if self.xf >= self.xd:
+            self.xd = self.xf + 0.01
+
+        self.make_all_lines()
+        self.update_artists()
+
+    def reset_sliders(self, event):
+        for slider in self.sliders:
+            slider.reset()
 
 
 def main():
@@ -153,6 +173,19 @@ if __name__ == "__main__":
 
 """
 
+xb_val = slider_xb.val
+            xf_val = slider_xf.val
+            xd_val = slider_xd.val
+            alpha_val = slider_alpha.val
+            r_val = slider_r.val
+            b_val = slider_b.val
+
+            self.xb = xb_val
+            self.xf = xf_val
+            self.xd = xd_val
+            self.alpha = alpha_val
+            self.r = r_val
+            self.b = b_val
 
     def build_figure(self):
         fig, ax = plt.subplots(figsize=(8, 6), dpi=120)
