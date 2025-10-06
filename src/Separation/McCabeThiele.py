@@ -5,6 +5,7 @@ from matplotlib.widgets import Slider, Button
 
 from tools import lines
 from tools.LabeledSlider import LabeledSlider
+from tools.chemistry import vapor_liquid_equilibrium
 
 
 class McCabeThiele:
@@ -14,9 +15,13 @@ class McCabeThiele:
     DEFAULT_ALPHA = 1.85
     DEFAULT_R = 3.0
     DEFAULT_B = 10.0
+    DEFAULT_Q = 1.0
     DEFAULT_MAX_EQ_ARRAY_SIZE = 127
 
-    def __init__(self, xf=None, xd=None, xb=None, alpha=None, r=None, b=None, *, max_eq_array_size=None):
+    DEPENDENT_VARS = ['R', 'B', 'q', 'xf', 'xd', 'xb']
+    DEFAULT_DEPENDENT_VAR = 'q'
+
+    def __init__(self, xf=None, xd=None, xb=None, alpha=None, r=None, b=None, q=None, *, max_eq_array_size=None):
         # Use default if no value is passed
         self.xf = xf if xf is not None else self.DEFAULT_XF
         self.xd = xd if xd is not None else self.DEFAULT_XD
@@ -24,17 +29,23 @@ class McCabeThiele:
         self.alpha = alpha if alpha is not None else self.DEFAULT_ALPHA
         self.r = r if r is not None else self.DEFAULT_R
         self.b = b if b is not None else self.DEFAULT_B
+        self.q = q if q is not None else self.DEFAULT_Q
+
+        self._dependent_variable = self.DEFAULT_DEPENDENT_VAR
 
         self.max_eq_array_size = max_eq_array_size if max_eq_array_size is not None else self.DEFAULT_MAX_EQ_ARRAY_SIZE
         self.n_eq_points = 0
         self.eq_points = np.zeros((2*self.max_eq_array_size, 1), dtype=float)
 
-        self.rectifying_line = 0, 0
-        self.stripping_line = 0, 0
-        self.q_point = 0, 0
+        self.rectifying_line = 0.0, 0.0
+        self.stripping_line = 0.0, 0.0
+        self.q_line = 0.0, 0.0
+        self.q_point = 0.0, 0.0
 
         self.xs = np.arange(0, 1, 0.01, dtype=float)
         self.eq_curve = np.zeros_like(self.xs)
+
+        self.ax = None
 
         self.diag_artist = None
         self.eqc_artist = None
@@ -47,24 +58,27 @@ class McCabeThiele:
         self.bottoms_text = None
         self.distillate_text = None
 
+        self.sliders = None
         self.reset_button = None
 
-        self.sliders = None
+    @property
+    def dependent_variable(self):
+        return self._dependent_variable
+
+    @dependent_variable.setter
+    def dependent_variable(self, new_value):
+        if new_value not in self.DEPENDENT_VARS:
+            raise ValueError(f"Invalid dependent variable '{new_value}'. ")
+        self._dependent_variable = new_value
 
     def make_all_lines(self):
         self.rectifying_line = self.r/(self.r+1), self.xd/(self.r+1)
         self.stripping_line = (self.b+1)/self.b, -self.xb/self.b
+        # self.q_line = self.q/(self.q-1), -self.xf/(self.q-1)
         self.q_point = lines.intersect(*self.rectifying_line, *self.stripping_line)
+        self.eq_curve = vapor_liquid_equilibrium(self.xs, self.alpha)
 
         self.make_equilibrium_points()
-
-        self.eq_curve = self.make_equilibrium_curve(self.xs)
-
-    def make_equilibrium_curve(self, x):
-        return self.alpha*x / ((self.alpha-1)*x + 1)
-
-    def make_equilibrium_curve_inverse(self, y):
-        return y / (self.alpha - y*(self.alpha-1))
 
     def make_equilibrium_points(self):
         self.n_eq_points = 0
@@ -74,7 +88,7 @@ class McCabeThiele:
         n = 3
 
         while eqs[n-1] < self.xd and n < 2*self.max_eq_array_size-5:
-            new = self.make_equilibrium_curve(eqs[n-1])
+            new = vapor_liquid_equilibrium(eqs[n-1], self.alpha)
 
             strip = (new - self.stripping_line[1]) / self.stripping_line[0]
             rect = (new - self.rectifying_line[1]) / self.rectifying_line[0]
@@ -121,8 +135,10 @@ class McCabeThiele:
 
         self.make_all_lines()
         self.init_artists(ax)
+        ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
+        self.ax = ax
 
-        axes = [plt.axes((0.05, 0.9 - 0.1*i, 0.3, 0.05)) for i in range(6)]
+        axes = [plt.axes((0.05, 0.8 - 0.1*i, 0.3, 0.05)) for i in range(6)]
         slider_xb = LabeledSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)
         slider_xf = LabeledSlider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01)
         slider_xd = LabeledSlider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01)
@@ -156,6 +172,7 @@ class McCabeThiele:
 
         self.make_all_lines()
         self.update_artists()
+        self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
 
     def reset_sliders(self, event):
         for slider in self.sliders:
