@@ -44,8 +44,12 @@ class CustomSlider(Slider):
         """Internal method to update the position and text of the custom value label."""
         self.custom_valtext.set_text(self.valfmt % val)
 
+    def set_val_text(self, val):
+        self.custom_valtext.set_text(self.valfmt % val)
+
     def disable(self):
         self.set_active(False)
+        self.eventson = False
         self.poly.set_alpha(0.5)
 
     def enable(self):

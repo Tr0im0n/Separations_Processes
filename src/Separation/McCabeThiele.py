@@ -15,7 +15,7 @@ class McCabeThiele:
     DEFAULT_ALPHA = 1.85
     DEFAULT_R = 3.0
     DEFAULT_B = 10.0
-    DEFAULT_Q = 1.0
+    DEFAULT_Q = 0.99
     N_OF_SLIDERS = 7
     DEFAULT_MAX_EQ_ARRAY_SIZE = 127
 
@@ -74,6 +74,10 @@ class McCabeThiele:
 
     def calculate_q(self):
         a, _ = lines.line_from_points(*self.q_point, self.xf, self.xf)
+        if a is None:
+            return 1
+        elif a == 1:
+            return 0
         return a/(a - 1)
 
     def make_all_lines(self):
@@ -154,10 +158,7 @@ class McCabeThiele:
 
         self.sliders = [slider_xb, slider_xf, slider_xd, slider_alpha, slider_r, slider_b, slider_q]
 
-        # print(*dir(slider_q.canvas), sep="\n")
-        # quit()
         slider_q.disable()
-        # slider_q.disable()
         # slider_q.enable()
 
         reset_ax = plt.axes((0.02, 0.05, 0.15, 0.05))
@@ -185,6 +186,9 @@ class McCabeThiele:
 
         self.make_all_lines()
         self.update_artists()
+        self. q = self.calculate_q()
+        self.sliders[6].set_val(self.q)
+        self.sliders[6].set_val_text(self.q)
         self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
 
     def reset_sliders(self, event):
