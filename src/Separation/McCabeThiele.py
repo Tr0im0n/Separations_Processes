@@ -44,9 +44,11 @@ class McCabeThiele:
         self.q_point = 0.0, 0.0
 
         self.xs = np.arange(0, 1, 0.01, dtype=float)
-        self.eq_curve = np.zeros_like(self.xs)
+        self.vle_curve = np.zeros_like(self.xs)
 
         self.ax = None
+
+        self.artist = None
 
         self.diag_artist = None
         self.eqc_artist = None
@@ -59,7 +61,7 @@ class McCabeThiele:
         self.bottoms_text = None
         self.distillate_text = None
 
-        self.sliders = None
+        self.all_sliders = None
         self.reset_button = None
 
     @property
@@ -72,21 +74,50 @@ class McCabeThiele:
             raise ValueError(f"Invalid dependent variable '{new_value}'. ")
         self._dependent_variable = new_value
 
+
+    def calculate_q_point(self):
+        if self.dependent_variable == 'q':
+            self.q_point = lines.intersect(self.r/(self.r+1), self.xd/(self.r+1),
+                                           (self.b+1)/self.b, -self.xb/self.b)
+        elif self.dependent_variable == 'R':
+            self.q_point = lines.intersect((self.b+1)/self.b, -self.xb/self.b,
+                                           self.q/(self.q-1), -self.xf/(self.q-1))
+        elif self.dependent_variable == 'B':
+            self.q_point = lines.intersect(self.r/(self.r+1), self.xd/(self.r+1),
+                                           self.q/(self.q-1), -self.xf/(self.q-1))
+        else:
+            raise ValueError("Is this even a value error?")
+
     def calculate_q(self):
-        a, _ = lines.line_from_points(*self.q_point, self.xf, self.xf)
+        if self.dependent_variable != 'q':
+            raise ValueError("Only calculate for the dependent variables")
+        a, _ = lines.through_points(*self.q_point, self.xf, self.xf)
         if a is None:
-            return 1
+            ans = 1
         elif a == 1:
-            return 0
-        return a/(a - 1)
+            ans = 0
+        else:
+             ans = a/(a - 1)
+        self.q = ans
+
+    def calculate_dependent_var(self):
+        if self.dependent_variable == 'q':
+            self.calculate_q()
+        elif self.dependent_variable == 'R':
+            a, _ = lines.through_points(*self.q_point, self.xd, self.xd)
+            self.r = a / 1 - a
+        elif self.dependent_variable == 'B':
+            a, _ = lines.through_points(*self.q_point, self.xd, self.xd)
+            self.b = 1 / (a - 1)
+        else:
+            raise ValueError("Is this even a value error?")
 
     def make_all_lines(self):
-        self.rectifying_line = self.r/(self.r+1), self.xd/(self.r+1)
-        self.stripping_line = (self.b+1)/self.b, -self.xb/self.b
-        # self.q_line = self.q/(self.q-1), -self.xf/(self.q-1)
-        self.q_point = lines.intersect(*self.rectifying_line, *self.stripping_line)
-        self.eq_curve = vapor_liquid_equilibrium(self.xs, self.alpha)
-
+        self.calculate_q_point()
+        self.calculate_dependent_var()
+        self.rectifying_line = self.r / (self.r + 1), self.xd / (self.r + 1)
+        self.stripping_line = (self.b + 1) / self.b, -self.xb / self.b
+        self.vle_curve = vapor_liquid_equilibrium(self.xs, self.alpha)
         self.make_equilibrium_points()
 
     def make_equilibrium_points(self):
@@ -111,9 +142,10 @@ class McCabeThiele:
 
         self.eq_points.shape = (self.max_eq_array_size, 2)
 
-    def init_artists(self, ax):
+    def init_artists(self):
+        ax = self.ax
         self.diag_artist, = ax.plot([0, 1], [0, 1])
-        self.eqc_artist, = ax.plot(self.xs, self.eq_curve)
+        self.eqc_artist, = ax.plot(self.xs, self.vle_curve)
         self.rect_artist, = ax.plot([self.xb, self.q_point[0]], [self.xb, self.q_point[1]])
         self.strip_artist, = ax.plot([self.xd, self.q_point[0]], [self.xd, self.q_point[1]])
         self.q_artist, = ax.plot([self.xf, self.q_point[0]], [self.xf, self.q_point[1]])
@@ -124,7 +156,7 @@ class McCabeThiele:
         self.distillate_text = ax.text(self.xd, self.xd, "Distillate", ha='left', va='top', fontsize=12)
 
     def update_artists(self):
-        self.eqc_artist.set_ydata(self.eq_curve)
+        self.eqc_artist.set_ydata(self.vle_curve)
         self.rect_artist.set_data([self.xb, self.q_point[0]], [self.xb, self.q_point[1]])
         self.strip_artist.set_data([self.xd, self.q_point[0]], [self.xd, self.q_point[1]])
         self.q_artist.set_data([self.xf, self.q_point[0]], [self.xf, self.q_point[1]])
@@ -134,6 +166,25 @@ class McCabeThiele:
         self.bottoms_text.set_position((self.xb, self.xb))
         self.distillate_text.set_position((self.xd, self.xd))
 
+    def init_sliders(self):
+        axes = [plt.axes((0.05, 0.8 - 0.1 * i, 0.3, 0.05)) for i in range(self.N_OF_SLIDERS)]
+        self.all_sliders = {
+            'xb': CustomSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01),
+            'xf': CustomSlider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01),
+            'xd': CustomSlider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01),
+            'alpha': CustomSlider(axes[3], 'alpha', 0.1, 10.0, valinit=self.alpha, valstep=0.01),
+            'R': CustomSlider(axes[4], 'R', 0.1, 10.0, valinit=self.r, valstep=0.1),
+            'B': CustomSlider(axes[5], 'B', 0.1, 20.0, valinit=self.b, valstep=0.1),
+            'q': CustomSlider(axes[6], 'q', -1.0, 2.0, valinit=self.q, valstep=0.01),
+        }
+        for slider in self.all_sliders.values():
+            slider.on_changed(self.update)
+
+    def init_button(self):
+        reset_ax = plt.axes((0.02, 0.05, 0.15, 0.05))
+        self.reset_button = Button(reset_ax, 'Reset', color='lightsalmon', hovercolor='tomato')
+        self.reset_button.on_clicked(self.reset_sliders)
+
     def with_sliders(self):
         fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
         plt.subplots_adjust(left=0.4)
@@ -141,43 +192,26 @@ class McCabeThiele:
         ax.set_xlim(0., 1.)
         ax.set_ylim(0., 1.)
         ax.grid(True)
-
-        self.make_all_lines()
-        self.init_artists(ax)
-        ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
         self.ax = ax
 
-        axes = [plt.axes((0.05, 0.8 - 0.1*i, 0.3, 0.05)) for i in range(self.N_OF_SLIDERS)]
-        slider_xb = CustomSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)
-        slider_xf = CustomSlider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01)
-        slider_xd = CustomSlider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01)
-        slider_alpha = CustomSlider(axes[3], 'alpha', 0.1, 10.0, valinit=self.alpha, valstep=0.01)
-        slider_r = CustomSlider(axes[4], 'R', 0.1, 10.0, valinit=self.r, valstep=0.1)
-        slider_b = CustomSlider(axes[5], 'B', 0.1, 20.0, valinit=self.b, valstep=0.1)
-        slider_q = CustomSlider(axes[6], 'q', -1.0, 2.0, valinit=self.q, valstep=0.01)
+        self.make_all_lines()
+        self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
+        self.init_artists()
+        self.init_sliders()
 
-        self.sliders = [slider_xb, slider_xf, slider_xd, slider_alpha, slider_r, slider_b, slider_q]
-
-        slider_q.disable()
-        # slider_q.enable()
-
-        reset_ax = plt.axes((0.02, 0.05, 0.15, 0.05))
-        self.reset_button = Button(reset_ax, 'Reset', color='lightsalmon', hovercolor='tomato')
-        self.reset_button.on_clicked(self.reset_sliders)
-
-        for i in self.sliders:
-            i.on_changed(self.update)
+        self.all_sliders[self.dependent_variable].disable()
+        self.init_button()
 
         plt.show()
 
     def update(self, val):
-        self.xb = self.sliders[0].val
-        self.xf = self.sliders[1].val
-        self.xd = self.sliders[2].val
-        self.alpha = self.sliders[3].val
-        self.r = self.sliders[4].val
-        self.b = self.sliders[5].val
-        self.q = self.sliders[6].val
+        self.xb = self.all_sliders['xb'].val
+        self.xf = self.all_sliders['xf'].val
+        self.xd = self.all_sliders['xd'].val
+        self.alpha = self.all_sliders['alpha'].val
+        self.r = self.all_sliders['R'].val
+        self.b = self.all_sliders['B'].val
+        self.q = self.all_sliders['q'].val
 
         if self.xb >= self.xf:
             self.xf = self.xb + 0.01
@@ -186,14 +220,35 @@ class McCabeThiele:
 
         self.make_all_lines()
         self.update_artists()
-        self. q = self.calculate_q()
-        self.sliders[6].set_val(self.q)
-        self.sliders[6].set_val_text(self.q)
+        # self.calculate_q()
+        # self.all_sliders['q'].set_val(self.q)
+        # self.all_sliders['q'].set_val_text(self.q)
         self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
 
     def reset_sliders(self, event):
-        for slider in self.sliders:
+        for slider in self.all_sliders:
             slider.reset()
+
+    def _calculate_r(self):
+        if self.dependent_variable != 'R':
+            raise ValueError("Only calculate for the dependent variables")
+        a, _ = lines.through_points(*self.q_point, self.xd, self.xd)
+        self.r = -1 / a - 1
+
+    def _calculate_b(self):
+        if self.dependent_variable != 'B':
+            raise ValueError("Only calculate for the dependent variables")
+        a, _ = lines.through_points(*self.q_point, self.xd, self.xd)
+        self.b = -1 / (1 - a)
+
+    def rectifying_line_coef(self):
+        return self.r / (self.r + 1), self.xd / (self.r + 1)
+
+    def stripping_line_coef(self):
+        return (self.b + 1) / self.b, -self.xb / self.b
+
+    def q_line_coef(self):
+        return self.q / (self.q - 1), -self.xf / (self.q - 1)
 
 
 def main():
@@ -206,6 +261,26 @@ if __name__ == "__main__":
 
 
 """
+
+axes = [plt.axes((0.05, 0.8 - 0.1*i, 0.3, 0.05)) for i in range(self.N_OF_SLIDERS)]
+        slider_xb = CustomSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)
+        slider_xf = CustomSlider(axes[1], 'xf', 0.01, 1.0, valinit=self.xf, valstep=0.01)
+        slider_xd = CustomSlider(axes[2], 'xd', 0.01, 1.0, valinit=self.xd, valstep=0.01)
+        slider_alpha = CustomSlider(axes[3], 'alpha', 0.1, 10.0, valinit=self.alpha, valstep=0.01)
+        slider_r = CustomSlider(axes[4], 'R', 0.1, 10.0, valinit=self.r, valstep=0.1)
+        slider_b = CustomSlider(axes[5], 'B', 0.1, 20.0, valinit=self.b, valstep=0.1)
+        slider_q = CustomSlider(axes[6], 'q', -1.0, 2.0, valinit=self.q, valstep=0.01)
+
+        self.all_sliders = {
+            'xb': slider_xb,
+            'xf': slider_xf,
+            'xd': slider_xd,
+            'alpha': slider_alpha,
+            'r': slider_r,
+            'b': slider_b,
+            'q': slider_q,
+        }
+
 
 xb_val = slider_xb.val
             xf_val = slider_xf.val
