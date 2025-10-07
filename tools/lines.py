@@ -14,4 +14,14 @@ def closest_point_on_line(a1, b1, x, y):
     return intersect(a1, b1, a2, b2)
 
 
+def line_from_points(x1, y1, x2, y2):
+    if x1 == x2:
+        return None
+    a = y2 - y1 / (x2 - x1)
+    b = y1 - a * x1
+    return a, b
+
+
+
+
 
