@@ -1,7 +1,7 @@
 
 from matplotlib import pyplot as plt
 import numpy as np
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Button, RadioButtons
 
 from tools import lines
 from tools.CustomSlider import CustomSlider
