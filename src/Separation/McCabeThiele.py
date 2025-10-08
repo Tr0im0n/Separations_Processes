@@ -63,6 +63,7 @@ class McCabeThiele:
 
         self.all_sliders = None
         self.reset_button = None
+        self.radio_buttons = None
 
     @property
     def dependent_variable(self):
@@ -72,7 +73,9 @@ class McCabeThiele:
     def dependent_variable(self, new_value):
         if new_value not in self.DEPENDENT_VARS:
             raise ValueError(f"Invalid dependent variable '{new_value}'. ")
+        self.all_sliders[self._dependent_variable].enable()
         self._dependent_variable = new_value
+        self.all_sliders[self._dependent_variable].disable()
 
 
     def calculate_q_point(self):
@@ -80,9 +83,13 @@ class McCabeThiele:
             self.q_point = lines.intersect(self.r/(self.r+1), self.xd/(self.r+1),
                                            (self.b+1)/self.b, -self.xb/self.b)
         elif self.dependent_variable == 'R':
+            if self.q == 1:
+                self.q_point = self.xf, (self.b+1)/self.b * self.xf - self.xb/self.b
             self.q_point = lines.intersect((self.b+1)/self.b, -self.xb/self.b,
                                            self.q/(self.q-1), -self.xf/(self.q-1))
         elif self.dependent_variable == 'B':
+            if self.q == 1:
+                self.q_point = self.xf, self.r/(self.r+1) * self.xf + self.xd/(self.r+1)
             self.q_point = lines.intersect(self.r/(self.r+1), self.xd/(self.r+1),
                                            self.q/(self.q-1), -self.xf/(self.q-1))
         else:
@@ -181,12 +188,29 @@ class McCabeThiele:
             slider.on_changed(self.update)
 
     def init_button(self):
-        reset_ax = plt.axes((0.02, 0.05, 0.15, 0.05))
+        reset_ax = plt.axes((0.1, 0.05, 0.15, 0.05))
         self.reset_button = Button(reset_ax, 'Reset', color='lightsalmon', hovercolor='tomato')
         self.reset_button.on_clicked(self.reset_sliders)
 
-    def with_sliders(self):
+    def on_radio_button_press(self, label):
+        weird_dict = {' ': 'R', '  ': 'B', '   ': 'q'}
+        new_dependent_variable = weird_dict[label]
+        self.dependent_variable = new_dependent_variable
+        print(new_dependent_variable)
+        self.ax.figure.canvas.draw()
+
+    def init_radio_button(self):
+        radio_ax = plt.axes((0.04, 0.16, 0.05, 0.4))
+        radio_ax.set_axis_off()
+        labels = (' R', ' B', ' q')
+        no_labels = (' ', '  ', '   ')
+        radio_props = {'s': [64, 64, 64]}
+        self.radio_buttons = RadioButtons(radio_ax, no_labels, active=2, radio_props=radio_props)
+        self.radio_buttons.on_clicked(self.on_radio_button_press)
+
+    def construct_figure(self):
         fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
+        fig.suptitle(f"Interactive McCabe Thiele Graph")
         plt.subplots_adjust(left=0.4)
 
         ax.set_xlim(0., 1.)
@@ -194,10 +218,14 @@ class McCabeThiele:
         ax.grid(True)
         self.ax = ax
 
+    def with_sliders(self):
+        self.construct_figure()
+
         self.make_all_lines()
         self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
         self.init_artists()
         self.init_sliders()
+        self.init_radio_button()
 
         self.all_sliders[self.dependent_variable].disable()
         self.init_button()
@@ -220,13 +248,13 @@ class McCabeThiele:
 
         self.make_all_lines()
         self.update_artists()
-        # self.calculate_q()
-        # self.all_sliders['q'].set_val(self.q)
-        # self.all_sliders['q'].set_val_text(self.q)
+        dv = self.dependent_variable
+        self.all_sliders[dv].set_val(self.q)
+        self.all_sliders[dv].set_val_text(self.q)
         self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
 
     def reset_sliders(self, event):
-        for slider in self.all_sliders:
+        for slider in self.all_sliders.values():
             slider.reset()
 
     def _calculate_r(self):
@@ -261,6 +289,32 @@ if __name__ == "__main__":
 
 
 """
+
+    DEFAULT_XF = 0.68
+    DEFAULT_XD = 0.93
+    DEFAULT_XB = 0.04
+    DEFAULT_ALPHA = 1.85
+    DEFAULT_R = 3.0
+    DEFAULT_B = 10.0
+    DEFAULT_Q = 0.99
+
+        # Use default if no value is passed
+        self.xf = xf if xf is not None else self.DEFAULT_XF
+        self.xd = xd if xd is not None else self.DEFAULT_XD
+        self.xb = xb if xb is not None else self.DEFAULT_XB
+        self.alpha = alpha if alpha is not None else self.DEFAULT_ALPHA
+        self.r = r if r is not None else self.DEFAULT_R
+        self.b = b if b is not None else self.DEFAULT_B
+        self.q = q if q is not None else self.DEFAULT_Q
+        
+
+        self.xb = self.all_sliders['xb'].val
+        self.xf = self.all_sliders['xf'].val
+        self.xd = self.all_sliders['xd'].val
+        self.alpha = self.all_sliders['alpha'].val
+        self.r = self.all_sliders['R'].val
+        self.b = self.all_sliders['B'].val
+        self.q = self.all_sliders['q'].val
 
 axes = [plt.axes((0.05, 0.8 - 0.1*i, 0.3, 0.05)) for i in range(self.N_OF_SLIDERS)]
         slider_xb = CustomSlider(axes[0], 'xb', 0.01, 1.0, valinit=self.xb, valstep=0.01)

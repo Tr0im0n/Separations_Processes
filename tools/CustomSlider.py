@@ -54,4 +54,5 @@ class CustomSlider(Slider):
 
     def enable(self):
         self.set_active(True)
+        self.eventson = True
         self.poly.set_alpha(1.0)
