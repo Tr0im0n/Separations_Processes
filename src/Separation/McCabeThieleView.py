@@ -1,11 +1,9 @@
 
 from matplotlib import pyplot as plt
-import numpy as np
 from matplotlib.widgets import Button, RadioButtons
 
 from src.Separation.McCabeThieleLogic import McCabeThieleLogic
 from tools.CustomSlider import CustomSlider
-from tools.chemistry import vapor_liquid_equilibrium
 
 
 class McCabeThiele:
@@ -19,6 +17,18 @@ class McCabeThiele:
         self.sliders = None
         self.reset_button = None
         self.radio_buttons = None
+
+    @property
+    def dependent_variable(self):
+        return self.logic.dependent_variable
+
+    @dependent_variable.setter
+    def dependent_variable(self, new_value):
+        if new_value not in self.logic.DEPENDENT_VARS:
+            raise ValueError(f"Invalid dependent variable '{new_value}'. ")
+        self.sliders[self.dependent_variable].enable()
+        self.logic._dependent_variable = new_value
+        self.sliders[self.dependent_variable].disable()
 
 
     def init_artists(self):
@@ -77,11 +87,11 @@ class McCabeThiele:
         maximums = [1.0, 1.0, 1.0, 10.0, 10.0, 20.0, 2.0]
 
         self.sliders = {variable: CustomSlider(
-            ax, variable, 0.01, 1.0, values[variable], valstep=0.01)
+            ax, variable, 0.01, valmax, values[variable], valstep=0.01)
             for ax, variable, valmax in zip(axes, variables, maximums)}
 
         for slider in self.sliders.values():
-            slider.on_changed(self.update)
+            slider.on_changed(self.update_all)
 
     def init_button(self):
         reset_ax = plt.axes((0.1, 0.05, 0.15, 0.05))
@@ -114,7 +124,7 @@ class McCabeThiele:
         ax.grid(True)
         self.ax = ax
 
-    def update(self, val):
+    def update_old(self, val):
         for key in self.variables:
             self.variables[key] = self.all_sliders[key].val
 
@@ -128,22 +138,47 @@ class McCabeThiele:
         dv = self.dependent_variable
         self.all_sliders[dv].set_val(self.q)
         self.all_sliders[dv].set_val_text(self.q)
-        self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
+        self.ax.set_title(f"Number of equilibrium stages: {self.logic.n_eq_points}")
+
+    def update_all(self, val):
+        for key, slider in self.sliders.items():
+            if key in self.logic.variables:
+                self.logic.variables[key] = slider.val
+            else:
+                raise ValueError("Slider has name that is not in variables. ")
+
+        xb = self.logic.variables['xb']
+        xf = self.logic.variables['xf']
+        xd = self.logic.variables['xd']
+
+        if xb >= xf:
+            self.logic.variables['xf'] = xb + 0.01
+        if xf >= xd:
+            self.logic.variables['xd'] = xf + 0.01
+
+        self.logic.make_all_lines()
+        self.update_artists()
+
+        dv = self.dependent_variable
+        self.sliders[dv].set_val(self.logic.variables[dv])
+        self.sliders[dv].set_val_text(self.logic.variables[dv])
+        self.ax.set_title(f"Number of equilibrium stages: {self.logic.n_eq_points}")
+
 
     def reset_sliders(self, event):
-        for slider in self.all_sliders.values():
+        for slider in self.sliders.values():
             slider.reset()
 
     def main(self):
         self.construct_figure()
 
-        self.make_all_lines()
-        self.ax.set_title(f"Number of equilibrium stages: {self.n_eq_points}")
+        self.logic.make_all_lines()
+        self.ax.set_title(f"Number of equilibrium stages: {self.logic.n_eq_points}")
         self.init_artists()
         self.init_sliders()
         self.init_radio_button()
 
-        self.all_sliders[self.dependent_variable].disable()
+        self.sliders[self.dependent_variable].disable()
         self.init_button()
 
         plt.show()

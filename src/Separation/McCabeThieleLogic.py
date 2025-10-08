@@ -12,14 +12,11 @@ class McCabeThieleLogic:
         'xd': 0.93,
         'xb': 0.04,
         'alpha': 1.85,
-        'r': 3.0,
-        'b': 10.0,
+        'R': 3.0,
+        'B': 10.0,
         'q': 0.99,
     }
-
-    # N_OF_SLIDERS = 7
     DEFAULT_MAX_EQ_ARRAY_SIZE = 127
-
     DEPENDENT_VARS = ['R', 'B', 'q', 'xf', 'xd', 'xb']
     DEFAULT_DEPENDENT_VAR = 'q'
 
@@ -71,7 +68,10 @@ class McCabeThieleLogic:
     def calc_q_line_coef(self):
         q = self.variables['q']
         xf = self.variables['xf']
-        self.q_coef = q / (q - 1), -xf / (q - 1)
+        if 1 == q:
+            self.q_coef = float('inf'), xf
+        else:
+            self.q_coef = q / (q - 1), -xf / (q - 1)
 
     def calc_known_operating_lines(self):
         match self.dependent_variable:
@@ -110,9 +110,11 @@ class McCabeThieleLogic:
             raise ValueError("Only calculate for the dependent variables")
         xf = self.variables['xf']
         a, _ = lines.through_points(*self.q_point, xf, xf)
-        if a is None:
+        if a is None or float('inf') == a:
             ans = 1
         elif a == 1:
+            ans = float('inf')
+        elif 0 == a:
             ans = 0
         else:
             ans = a/ (a - 1)
@@ -168,8 +170,8 @@ class McCabeThieleLogic:
         xb = self.variables['xb']
         xd = self.variables['xd']
         alpha = self.variables['alpha']
-        eqs[:3] = xb
         n = 3
+        eqs[:n] = xb
 
         while eqs[n - 1] < xd and n < 2 * self.max_eq_array_size - 5:
             new = vapor_liquid_equilibrium(eqs[n - 1], alpha)
@@ -182,7 +184,7 @@ class McCabeThieleLogic:
             eqs[n + 2] = eqs[n]
             eqs[n + 3] = eqs[n + 1]
             n += 4
-            self.n_eq_points += 1
+            n_eq_points += 1
 
         self.eq_points.shape = (self.max_eq_array_size, 2)
         self.n_eq_points = n_eq_points
