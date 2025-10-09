@@ -6,7 +6,7 @@ from src.mccabe_thiele.McCabeThieleLogic import McCabeThieleLogic
 from tools.CustomSlider import CustomSlider
 
 
-class McCabeThiele:
+class McCabeThieleView:
     N_OF_SLIDERS = 7
 
     def __init__(self):
@@ -171,7 +171,7 @@ class McCabeThiele:
 
 
 def main():
-    mct1 = McCabeThiele()
+    mct1 = McCabeThieleView()
     mct1.main()
 
 

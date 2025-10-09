@@ -150,13 +150,13 @@ class McCabeThieleLogic:
         self.variables['xf'] = b / (1 - a)
 
     def _calculate_xd(self):
-        a, b = self.stripping_coef
+        a, b = self.rectifying_coef
         if 1 == a:
             raise ValueError("This should be physically impossible.")
         self.variables['xd'] = b / (1 - a)
 
     def _calculate_xb(self):
-        a, b = self.rectifying_coef
+        a, b = self.stripping_coef
         if 1 == a:
             raise ValueError("This should be physically impossible.")
         self.variables['xb'] = b / (1 - a)
@@ -203,6 +203,7 @@ class McCabeThieleLogic:
     def make_all_lines(self):
         self.calc_known_operating_lines()
         self.calculate_q_point()
+        # TODO this order is wrong for the x's
         self.calculate_dependent_var()
         self.calc_found_operating_line()
         self.vle_curve = vapor_liquid_equilibrium(self.xs, self.variables['alpha'])
