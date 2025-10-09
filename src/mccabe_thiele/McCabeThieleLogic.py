@@ -36,11 +36,20 @@ class McCabeThieleLogic:
 
         self.rectifying_coef = 0.0, 0.0
         self.stripping_coef = 0.0, 0.0
-        self.q_coef = 0.0, 0.0
+        self.q_line_coef = 0.0, 0.0
         self.q_point = 0.0, 0.0
 
         self.xs = np.arange(0, 1, 0.01, dtype=float)
         self.vle_curve = np.zeros_like(self.xs)
+
+        self._variable_calculators_dict = {
+            'xf': self._calculate_xf,
+            'xd': self._calculate_xd,
+            'xb': self._calculate_xb,
+            'R': self._calculate_r,
+            'B': self._calculate_b,
+            'q': self._calculate_q,
+        }
 
     @property
     def dependent_variable(self):
@@ -50,9 +59,7 @@ class McCabeThieleLogic:
     def dependent_variable(self, new_value):
         if new_value not in self.DEPENDENT_VARS:
             raise ValueError(f"Invalid dependent variable '{new_value}'. ")
-        # self.all_sliders[self._dependent_variable].enable()
         self._dependent_variable = new_value
-        # self.all_sliders[self._dependent_variable].disable()
 
 
     def calc_rectifying_line_coef(self):
@@ -69,45 +76,43 @@ class McCabeThieleLogic:
         q = self.variables['q']
         xf = self.variables['xf']
         if 1 == q:
-            self.q_coef = float('inf'), xf
+            self.q_line_coef = float('inf'), xf
         else:
-            self.q_coef = q / (q - 1), -xf / (q - 1)
+            self.q_line_coef = q / (q - 1), -xf / (q - 1)
 
     def calc_known_operating_lines(self):
-        match self.dependent_variable:
+        match self._dependent_variable:
             case 'q' | 'xf':
                 self.calc_rectifying_line_coef()
                 self.calc_stripping_line_coef()
-            case 'R':
+            case 'R' | 'xd':
                 self.calc_stripping_line_coef()
                 self.calc_q_line_coef()
-            case 'B':
+            case 'B' | 'xb':
                 self.calc_rectifying_line_coef()
                 self.calc_q_line_coef()
 
     def calculate_q_point(self):
         xf = self.variables['xf']
         q = self.variables['q']
-        match self.dependent_variable:
-            case 'q':
+        match self._dependent_variable:
+            case 'q' | 'xf':
                 ans = lines.intersect(*self.rectifying_coef, *self.stripping_coef)
-            case 'R':
+            case 'R' | 'xd':
                 if q == 1:
                     ans = xf, lines.get_y(xf, *self.stripping_coef)
                 else:
-                    ans = lines.intersect(*self.stripping_coef, *self.q_coef)
-            case 'B':
+                    ans = lines.intersect(*self.stripping_coef, *self.q_line_coef)
+            case 'B' | 'xb':
                 if q == 1:
                     ans = xf, lines.get_y(xf, *self.rectifying_coef)
                 else:
-                    ans = lines.intersect(*self.rectifying_coef, *self.q_coef)
+                    ans = lines.intersect(*self.rectifying_coef, *self.q_line_coef)
             case _:
-                raise ValueError("Is this even a value error?")
+                raise ValueError("Impossible to get here")
         self.q_point = ans
 
     def _calculate_q(self):
-        if self.dependent_variable != 'q':
-            raise ValueError("Only calculate for the dependent variables")
         xf = self.variables['xf']
         a, _ = lines.through_points(*self.q_point, xf, xf)
         if a is None or float('inf') == a:
@@ -121,8 +126,6 @@ class McCabeThieleLogic:
         self.variables['q'] = ans
 
     def _calculate_r(self):
-        if self.dependent_variable != 'R':
-            raise ValueError("Only calculate for the dependent variables")
         xd = self.variables['xd']
         a, _ = lines.through_points(*self.q_point, xd, xd)
         # I don't think this will ever happen, but doesn't hurt to keep it in.
@@ -132,8 +135,6 @@ class McCabeThieleLogic:
             self.variables['R'] = a / (1 - a)
 
     def _calculate_b(self):
-        if self.dependent_variable != 'B':
-            raise ValueError("Only calculate for the dependent variables")
         xb = self.variables['xb']
         a, _ = lines.through_points(*self.q_point, xb, xb)
         # Same as earlier.
@@ -142,24 +143,34 @@ class McCabeThieleLogic:
         else:
             self.variables['B'] = 1 / (a - 1)
 
+    def _calculate_xf(self):
+        a, b = self.q_line_coef
+        if 1 == a:
+            raise ValueError("This should be physically impossible.")
+        self.variables['xf'] = b / (1 - a)
+
+    def _calculate_xd(self):
+        a, b = self.stripping_coef
+        if 1 == a:
+            raise ValueError("This should be physically impossible.")
+        self.variables['xd'] = b / (1 - a)
+
+    def _calculate_xb(self):
+        a, b = self.rectifying_coef
+        if 1 == a:
+            raise ValueError("This should be physically impossible.")
+        self.variables['xb'] = b / (1 - a)
+
     def calculate_dependent_var(self):
-        match self.dependent_variable:
-            case 'q':
-                self._calculate_q()
-            case 'R':
-                self._calculate_r()
-            case 'B':
-                self._calculate_b()
-            case _:
-                raise ValueError("Is this even a value error?")
+        self._variable_calculators_dict[self._dependent_variable]()
 
     def calc_found_operating_line(self):
-        match self.dependent_variable:
-            case 'q':
+        match self._dependent_variable:
+            case 'q' | 'xf':
                 self.calc_q_line_coef()
-            case 'R':
+            case 'R' | 'xd':
                 self.calc_rectifying_line_coef()
-            case 'B':
+            case 'B' | 'xb':
                 self.calc_stripping_line_coef()
 
     def make_equilibrium_points(self):

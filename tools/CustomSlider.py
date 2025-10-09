@@ -1,6 +1,5 @@
+
 from matplotlib.widgets import Slider
-from matplotlib.text import Text
-import matplotlib.pyplot as plt
 
 
 class CustomSlider(Slider):
