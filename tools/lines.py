@@ -1,7 +1,5 @@
 
 
-
-
 def intersect(a1, b1, a2, b2):
     if a1 == a2:
         return None
@@ -28,4 +26,7 @@ def through_points(x1, y1, x2, y2):
 def get_y(x, a, b):
     return a * x + b
 
+
+def intersect_from_slope_and_point(a, x, y):
+    return y - a * x
 

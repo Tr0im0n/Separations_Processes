@@ -64,21 +64,41 @@ class McCabeThieleLogic:
 
     def calc_rectifying_line_coef(self):
         r = self.variables['R']
-        xd = self.variables['xd']
-        self.rectifying_coef = r / (r + 1), xd / (r + 1)
+        a = r / (r + 1)
+        if 'xd' == self._dependent_variable:
+            b = lines.intersect_from_slope_and_point(a, *self.q_point)
+        else:
+            xd = self.variables['xd']
+            b = xd / (r + 1)
+        self.rectifying_coef = a, b
 
     def calc_stripping_line_coef(self):
         b = self.variables['B']
-        xb = self.variables['xb']
-        self.stripping_coef = (b + 1) / b, -xb / b
+        slope = (b + 1) / b
+        if 'xb' == self._dependent_variable:
+            intercept = lines.intersect_from_slope_and_point(slope, *self.q_point)
+        else:
+            xb = self.variables['xb']
+            intercept = -xb / b
+        self.stripping_coef = slope, intercept
 
     def calc_q_line_coef(self):
         q = self.variables['q']
-        xf = self.variables['xf']
         if 1 == q:
-            self.q_line_coef = float('inf'), xf
+            slope = float('inf')
         else:
-            self.q_line_coef = q / (q - 1), -xf / (q - 1)
+            slope = q / (q - 1)
+
+        if 'xf' == self.dependent_variable:
+            intercept = lines.intersect_from_slope_and_point(slope, *self.q_point)
+        else:
+            xf = self.variables['xf']
+            if 1 == q:
+                intercept = xf
+            else:
+                intercept = -xf / (q - 1)
+        self.q_line_coef = slope, intercept
+
 
     def calc_known_operating_lines(self):
         match self._dependent_variable:
@@ -161,6 +181,12 @@ class McCabeThieleLogic:
             raise ValueError("This should be physically impossible.")
         self.variables['xb'] = b / (1 - a)
 
+    def _calculate_x(self, var, coef):
+        a, b = coef
+        if 1 == a:
+            raise ValueError("This should be physically impossible.")
+        self.variables[var] = b / (1 - a)
+
     def calculate_dependent_var(self):
         self._variable_calculators_dict[self._dependent_variable]()
 
@@ -203,9 +229,13 @@ class McCabeThieleLogic:
     def make_all_lines(self):
         self.calc_known_operating_lines()
         self.calculate_q_point()
-        # TODO this order is wrong for the x's
-        self.calculate_dependent_var()
-        self.calc_found_operating_line()
+        # The order of the next 2 steps depend on what is calculated
+        if self.dependent_variable in ('R', 'B', 'q'):
+            self.calculate_dependent_var()
+            self.calc_found_operating_line()
+        else:
+            self.calc_found_operating_line()
+            self.calculate_dependent_var()
         self.vle_curve = vapor_liquid_equilibrium(self.xs, self.variables['alpha'])
         self.make_equilibrium_points()
 
