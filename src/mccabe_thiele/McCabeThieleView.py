@@ -23,11 +23,10 @@ class McCabeThiele:
         return self.logic.dependent_variable
 
     @dependent_variable.setter
-    def dependent_variable(self, new_value):
-        if new_value not in self.logic.DEPENDENT_VARS:
-            raise ValueError(f"Invalid dependent variable '{new_value}'. ")
-        self.sliders[self.dependent_variable].enable()
-        self.logic._dependent_variable = new_value
+    def dependent_variable(self, new_var):
+        old_var = self.logic.dependent_variable
+        self.logic.dependent_variable = new_var
+        self.sliders[old_var].enable()
         self.sliders[self.dependent_variable].disable()
 
 
@@ -82,13 +81,14 @@ class McCabeThiele:
 
     def init_sliders(self):
         axes = [plt.axes((0.05, 0.8 - 0.1 * i, 0.3, 0.05)) for i in range(self.N_OF_SLIDERS)]
-        variables = ['xb', 'xf', 'xd', 'alpha', 'R', 'B', 'q']
+        variables = ('alpha', 'xb', 'xf', 'xd', 'q', 'R', 'B')
+        minimums = (0.01, 0.01, 0.01, 0.01, -2.0, 0.01, 0.01)
+        maximums = (10.0, 1.0, 1.0, 1.0, 3.0, 10.0, 20.0)
         values = self.logic.variables
-        maximums = [1.0, 1.0, 1.0, 10.0, 10.0, 20.0, 2.0]
 
         self.sliders = {variable: CustomSlider(
-            ax, variable, 0.01, valmax, values[variable], valstep=0.01)
-            for ax, variable, valmax in zip(axes, variables, maximums)}
+            ax, variable, valmin, valmax, values[variable], valstep=0.01)
+            for ax, variable, valmin, valmax in zip(axes, variables, minimums, maximums)}
 
         for slider in self.sliders.values():
             slider.on_changed(self.update_all)
@@ -99,20 +99,21 @@ class McCabeThiele:
         self.reset_button.on_clicked(self.reset_sliders)
 
     def on_radio_button_press(self, label):
-        weird_dict = {' ': 'R', '  ': 'B', '   ': 'q'}
-        new_dependent_variable = weird_dict[label]
-        self.dependent_variable = new_dependent_variable
-        print(new_dependent_variable)
+        self.dependent_variable = label
+        print(label)
         self.ax.figure.canvas.draw()
 
     def init_radio_button(self):
-        radio_ax = plt.axes((0.04, 0.16, 0.05, 0.4))
+        radio_ax = plt.axes((0.04, 0.16, 0.05, 0.7))
         radio_ax.set_axis_off()
-        labels = (' R', ' B', ' q')
-        no_labels = (' ', '  ', '   ')
-        radio_props = {'s': [64, 64, 64]}
-        self.radio_buttons = RadioButtons(radio_ax, no_labels, active=2, radio_props=radio_props)
+        labels = ('xb', 'xf', 'xd', 'q', 'R', 'B')
+        radio_props = {'s': 64}
+        self.radio_buttons = RadioButtons(radio_ax, labels, active=3, radio_props=radio_props)
         self.radio_buttons.on_clicked(self.on_radio_button_press)
+
+        for text in self.radio_buttons.labels:
+            x, y = text.get_position()
+            text.set_position((x + 0.1, y))
 
     def construct_figure(self):
         fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
@@ -123,22 +124,6 @@ class McCabeThiele:
         ax.set_ylim(0., 1.)
         ax.grid(True)
         self.ax = ax
-
-    def update_old(self, val):
-        for key in self.variables:
-            self.variables[key] = self.all_sliders[key].val
-
-        if self.variables['xb'] >= self.variables['xf']:
-            self.variables['xf'] = self.variables['xb'] + 0.01
-        if self.variables['xf'] >= self.variables['xd']:
-            self.variables['xd'] = self.variables['xf'] + 0.01
-
-        self.make_all_lines()
-        self.update_artists()
-        dv = self.dependent_variable
-        self.all_sliders[dv].set_val(self.q)
-        self.all_sliders[dv].set_val_text(self.q)
-        self.ax.set_title(f"Number of equilibrium stages: {self.logic.n_eq_points}")
 
     def update_all(self, val):
         for key, slider in self.sliders.items():

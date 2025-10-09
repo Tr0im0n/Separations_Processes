@@ -18,7 +18,7 @@ class CustomSlider(Slider):
         fig = ax.figure
         # make new labels
         self.custom_label = fig.text(
-            x0  + 0.01,
+            x0 + width/3 + 0.01,
             y0 + height,
             label,
             ha='left',
