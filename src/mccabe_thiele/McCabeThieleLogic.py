@@ -75,7 +75,7 @@ class McCabeThieleLogic:
 
     def calc_known_operating_lines(self):
         match self.dependent_variable:
-            case 'q':
+            case 'q' | 'xf':
                 self.calc_rectifying_line_coef()
                 self.calc_stripping_line_coef()
             case 'R':

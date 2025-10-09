@@ -18,7 +18,7 @@ def through_points(x1, y1, x2, y2):
     """Returns None, if slope is Inf"""
     if x1 == x2:
         return float('inf'), x1
-    a = y2 - y1 / (x2 - x1)
+    a = (y2 - y1) / (x2 - x1)
     b = y1 - a * x1
     return a, b
 

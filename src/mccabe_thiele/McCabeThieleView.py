@@ -2,7 +2,7 @@
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Button, RadioButtons
 
-from src.Separation.McCabeThieleLogic import McCabeThieleLogic
+from src.mccabe_thiele.McCabeThieleLogic import McCabeThieleLogic
 from tools.CustomSlider import CustomSlider
 
 

@@ -8,7 +8,7 @@ from tools.CustomSlider import CustomSlider
 from tools.chemistry import vapor_liquid_equilibrium
 
 
-class McCabeThiele:
+class McCabeThieleOld:
     DEFAULT_XF = 0.68
     DEFAULT_XD = 0.93
     DEFAULT_XB = 0.04
@@ -280,7 +280,7 @@ class McCabeThiele:
 
 
 def main():
-    mct1 = McCabeThiele()
+    mct1 = McCabeThieleOld()
     mct1.with_sliders()
 
 
