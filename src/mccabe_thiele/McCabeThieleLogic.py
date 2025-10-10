@@ -1,8 +1,7 @@
 
 import numpy as np
 
-from tools import lines
-from tools.chemistry import vapor_liquid_equilibrium
+from tools import lines, chemistry
 
 
 class McCabeThieleLogic:
@@ -99,7 +98,6 @@ class McCabeThieleLogic:
                 intercept = -xf / (q - 1)
         self.q_line_coef = slope, intercept
 
-
     def calc_known_operating_lines(self):
         match self._dependent_variable:
             case 'q' | 'xf':
@@ -163,29 +161,20 @@ class McCabeThieleLogic:
         else:
             self.variables['B'] = 1 / (a - 1)
 
-    def _calculate_xf(self):
-        a, b = self.q_line_coef
-        if 1 == a:
-            raise ValueError("This should be physically impossible.")
-        self.variables['xf'] = b / (1 - a)
-
-    def _calculate_xd(self):
-        a, b = self.rectifying_coef
-        if 1 == a:
-            raise ValueError("This should be physically impossible.")
-        self.variables['xd'] = b / (1 - a)
-
-    def _calculate_xb(self):
-        a, b = self.stripping_coef
-        if 1 == a:
-            raise ValueError("This should be physically impossible.")
-        self.variables['xb'] = b / (1 - a)
-
     def _calculate_x(self, var, coef):
         a, b = coef
         if 1 == a:
             raise ValueError("This should be physically impossible.")
         self.variables[var] = b / (1 - a)
+
+    def _calculate_xb(self):
+        self._calculate_x('xb', self.stripping_coef)
+
+    def _calculate_xf(self):
+        self._calculate_x('xf', self.q_line_coef)
+
+    def _calculate_xd(self):
+        self._calculate_x('xd', self.rectifying_coef)
 
     def calculate_dependent_var(self):
         self._variable_calculators_dict[self._dependent_variable]()
@@ -200,6 +189,10 @@ class McCabeThieleLogic:
                 self.calc_stripping_line_coef()
 
     def make_equilibrium_points(self):
+        """
+        TODO: The constant reshaping of this array isn't necessary anymore,
+        But it will be a lot of work to refactor, for very little benefit.
+        """
         n_eq_points = 0
         eqs = self.eq_points
         eqs.shape = (2 * self.max_eq_array_size, 1)
@@ -211,7 +204,7 @@ class McCabeThieleLogic:
         eqs[:n] = xb
 
         while eqs[n - 1] < xd and n < 2 * self.max_eq_array_size - 5:
-            new = vapor_liquid_equilibrium(eqs[n - 1], alpha)
+            new = chemistry.vapor_liquid_equilibrium(eqs[n - 1], alpha)
 
             strip = (new - self.stripping_coef[1]) / self.stripping_coef[0]
             rect = (new - self.rectifying_coef[1]) / self.rectifying_coef[0]
@@ -236,7 +229,7 @@ class McCabeThieleLogic:
         else:
             self.calc_found_operating_line()
             self.calculate_dependent_var()
-        self.vle_curve = vapor_liquid_equilibrium(self.xs, self.variables['alpha'])
+        self.vle_curve = chemistry.vapor_liquid_equilibrium(self.xs, self.variables['alpha'])
         self.make_equilibrium_points()
 
 
@@ -246,4 +239,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

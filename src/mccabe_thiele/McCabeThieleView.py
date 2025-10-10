@@ -104,6 +104,11 @@ class McCabeThieleView:
         self.ax.figure.canvas.draw()
 
     def init_radio_button(self):
+        """
+        TODO: This 3 needs to be the same as the default value in the logic class
+        for dependent variable.
+        But it will some work to refactor.
+        """
         radio_ax = plt.axes((0.04, 0.16, 0.05, 0.7))
         radio_ax.set_axis_off()
         labels = ('xb', 'xf', 'xd', 'q', 'R', 'B')
@@ -169,7 +174,6 @@ class McCabeThieleView:
         plt.show()
 
 
-
 def main():
     mct1 = McCabeThieleView()
     mct1.main()
@@ -177,6 +181,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
