@@ -1,3 +1,4 @@
+# Interactive McCabe Thiele Diagram
 
 Use the sliders to play around with the values. 
 Select the variable you want to be the dependent variable. 
